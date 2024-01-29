@@ -1,5 +1,4 @@
 """Node classes for a Generalized Suffix Tree."""
-
 from typing import Optional, Tuple, List, Set, Dict
 
 from .util import Path, Id, Symbol, Symbols, debug
@@ -59,6 +58,7 @@ class Node(lca_mixin.Node):
         raise NotImplementedError()
 
     def compute_left_diverse(self):
+        print('not implemented')
         """Calculate the left-diversity of this node and all its children."""
         raise NotImplementedError()
 
@@ -175,7 +175,7 @@ class Internal(lca_mixin.Internal, Node):
         N.B. This suffix tree operates on any python hashable object, not just
         characters, so left characters usually are objects.
         """
-
+        self.left = {}
         self.C: int = -1
         r"""**Definition** For any internal node `v` of `\mathcal{T}`,
         define `C(v)` to be the number of *distinct* string identifiers that
@@ -198,10 +198,24 @@ class Internal(lca_mixin.Internal, Node):
         for node in self.children.values():
             node.pre_order(f)
 
+    """
     def post_order(self, f) -> None:
         for node in self.children.values():
             node.post_order(f)
         f(self)
+    """
+    def post_order(self, f) -> None:
+        stack = [self]
+        last = None
+        while stack:
+            node = stack[-1]
+            if not node.children or last and (last in node.children.values()):
+                f(node)
+                stack.pop()
+                last = node
+            else:
+                stack += node.children.values()
+
 
     def find_path(
         self, S: Symbols, start: int, end: int
@@ -273,8 +287,8 @@ class Internal(lca_mixin.Internal, Node):
                 str(new_node),
                 str(child),
             )
-
         return new_node
+    
 
     def compute_C(self) -> Set[Id]:
         id_set: Set[Id] = set()
@@ -282,6 +296,20 @@ class Internal(lca_mixin.Internal, Node):
             id_set.update(node.compute_C())
         self.C = len(id_set)
         return id_set
+
+    def nr_compute_C(self) -> Set[Id]:
+        def process_C(node):
+            if not node.children:
+            # leaf
+                node.id_set = {node.str_id}
+                node.C = len(node.id_set)
+            else:
+                node.id_set = {*()}
+                for child in node.children.values():
+                    node.id_set.update(child.id_set)
+                node.C = len(node.id_set)
+        self.post_order(process_C)
+
 
     def compute_left_diverse(self) -> Optional[Set]:
         left_characters = set()
@@ -295,6 +323,28 @@ class Internal(lca_mixin.Internal, Node):
         if len(left_characters) > 1:
             self.is_left_diverse = True
         return None if self.is_left_diverse else left_characters
+
+    def nr_compute_left_diverse(self) -> Optional[Set]:
+        def process(node):
+            if not node.children:
+                node.left = node.compute_left_diverse()
+                if not node.left:
+                    node.is_left_diverse = True
+            else:
+                # if any child node is left diverse, then this node is
+                for child in node.children.values():
+                    if child.is_left_diverse:
+                        node.is_left_diverse = True
+                        return
+                if not node.is_left_diverse:
+                    # None of the child nodes are left diverse, check if all child nodes have the same left char
+                    for child in node.children.values():
+                        node.left.update(child.left)
+                        if node.left.__len__() > 1:
+                            node.is_left_diverse = True
+                            return
+
+        self.post_order(process) 
 
     def common_substrings(self, V: Dict[int, Tuple[int, Id, Path]]):
         k = self.C  # no. of distinct strings in the subtree
@@ -349,8 +399,11 @@ class Leaf(lca_mixin.Leaf, Node):
         self.lca_id = 0
         self.I = 0
         self.A = 0
+        self.is_left_diverse = False
+        self.left = {}
 
         self.str_id: Id = str_id
+        self.children: dict[Symbol, Node] = {}
         """The id of the sequence that created this node."""
 
     def __str__(self) -> str:
@@ -374,9 +427,19 @@ class Leaf(lca_mixin.Leaf, Node):
 
     def compute_C(self) -> Set[Id]:
         return set([self.str_id])
+        
 
     def compute_left_diverse(self):
-        return [self.S[self.start - 1]] if self.start else None
+        return {self.S[self.start - 1]: None} if self.start else {}
+        """
+        if self.start:
+            rtn = [self.S[self.start -1]]
+        else:
+            rtn = None
+        self.is_left_diverse = rtn
+        return rtn
+        """
+
 
     def maximal_repeats(self, a: list):
         return

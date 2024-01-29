@@ -256,7 +256,7 @@ class Tree(lca_mixin.Tree):
             l.append((k, max_len, max_path))  # type: ignore
         return sorted(l)
 
-    def maximal_repeats(self) -> List[Tuple[int, Path]]:
+    def maximal_repeats(self, recursive=True) -> List[Tuple[int, Path]]:
         r"""Get a list of the maximal repeats in the tree.
 
         **Definition** A *maximal pair* in a string `S` is a pair of identical
@@ -282,8 +282,12 @@ class Tree(lca_mixin.Tree):
         2 x a
 
         """
-        self.root.compute_C()
-        self.root.compute_left_diverse()
+        if recursive:
+            self.root.compute_C()
+            self.root.compute_left_diverse()
+        else:
+            self.root.nr_compute_C()
+            self.root.nr_compute_left_diverse()
 
         l: List[Tuple[int, Path]] = []
         for child in self.root.children.values():
