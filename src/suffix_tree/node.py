@@ -187,7 +187,7 @@ class Internal(lca_mixin.Internal, Node):
         return (
             "Internal '"
             + (self.name or " ".join(map(str, self.S[self.start : self.end])))
-            + "'"
+            + "'" + f'Left: {self.is_left_diverse}'
         ) + super().__str__()
 
     def add_position(self, l: List[Tuple[Id, Path]]) -> None:
@@ -328,18 +328,21 @@ class Internal(lca_mixin.Internal, Node):
         def process(node):
             if not node.children:
                 node.left = node.compute_left_diverse()
-                if not node.left:
+                #if not node.left:
+                if len(node.left) > 1:
                     node.is_left_diverse = True
             else:
                 # if any child node is left diverse, then this node is
                 for child in node.children.values():
                     if child.is_left_diverse:
+                        #print(f'Node: {node}, child: {child} is left diverse, so this node is too') 
                         node.is_left_diverse = True
                         return
                 if not node.is_left_diverse:
                     # None of the child nodes are left diverse, check if all child nodes have the same left char
                     for child in node.children.values():
                         node.left.update(child.left)
+                        #FIXME unindent I think??
                         if node.left.__len__() > 1:
                             node.is_left_diverse = True
                             return
@@ -359,11 +362,24 @@ class Internal(lca_mixin.Internal, Node):
             child.common_substrings(V)
 
     def maximal_repeats(self, a: List[Tuple[int, Path]]):
+        #DFS
+        stack = [self]
+        while stack:
+            node = stack[0]
+            if node.is_left_diverse:
+                #print(f'{node} is left diverse')
+                a.append((node.C, Path(node.S, node.start, node.end)))
+            stack = stack[1:]
+            for child in node.children.values():
+                stack.append(child)
+        """
         if self.is_left_diverse:
             a.append((self.C, Path(self.S, self.start, self.end)))
         for child in self.children.values():
             child.maximal_repeats(a)
+        """
 
+        
     def _to_dot(self, a: List[str]) -> None:
         a.append(f'"{str(self)}" [color=red];\n')
         if self.suffix_link is not None:
@@ -413,7 +429,7 @@ class Leaf(lca_mixin.Leaf, Node):
             "Leaf '"
             + (self.name or " ".join(map(str, self.S[self.start : self.end])))
             + super().__str__()
-            + f"' ({str(self.str_id)}:{self.start + 1})"
+            + f"' ({str(self.str_id)}:{self.start + 1})" + f'Left: {self.is_left_diverse}'
         )
 
     def pre_order(self, f) -> None:
